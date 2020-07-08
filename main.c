@@ -12,24 +12,21 @@
 #define nOfLabsR1 3 // number of labs in region 1
 #define nOfLabsR2 2 // number of labs in region 2
 
-// Function that each doctor thread executes.
+// Function executed my each doctor thread. It registers the number of dead patients a doctor had in one day.
 void *notifyDeaths(void *i){
   int nOfDeaths; // new daily deaths 
-  nOfDeaths = rand() % 100; // number between 0 and 99
-
-  int length = (int)((ceil(log10(nOfDeaths))+1)*sizeof(char)); //length of the buffer to store the number of deaths as an array of characters
-  char buff[length];
- // char buff2[] = "\n"; 
-//  sprintf(buff, "%d", nOfDeaths);
   long doctorId = (long) i;
-  int fd;//File descriptor
+  FILE *filePointer;
+
+  nOfDeaths = rand() % 100; // number between 0 and 99 
+  filePointer = fopen("deaths.txt", "a+");  // open the file for writing in appending mode
+ 
+  fprintf(filePointer, "%d", nOfDeaths); 
+  fprintf(filePointer, "%c", '\n'); 
 
   printf("The doctor number: %ld is registering %d deaths... \n", doctorId, nOfDeaths);
-  /*
-  fd = open("./deaths.txt", O_WRONLY|O_APPEND);
-  write(fd, buff, sizeof(buff)-1);
- // write(fd, buff2, sizeof(buff2)-1);
-  close(fd); */   
+
+  fclose(filePointer); // closes the file
   pthread_exit(NULL);
 }
 
@@ -67,14 +64,14 @@ int main(int argc, char *argv[]) {
       printf("Error during thread creation \n");
       exit(-1);    
     }
-    pthread_join(doctors[i], NULL);
   }
-  /*
+
+  
   // Wait for all the doctor threads to finish
   for(int i = 0; i < nOfDoctorsR1 + nOfDoctorsR2; i++) {
     pthread_join(doctors[i], NULL);   
   }
-*/
+
   printf("---------------------------------------------- \n"); 
   /*
   //Creating laboratories threads
