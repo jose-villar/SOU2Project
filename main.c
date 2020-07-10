@@ -11,8 +11,75 @@
 #define nOfDoctorsR2 6 // number of doctors in region 2
 #define nOfLabsR1 3 // number of labs in region 1
 #define nOfLabsR2 2 // number of labs in region 2
+#define LENGTH 5
 
 pthread_mutex_t mutex; //MUTEX
+
+// Copies the first "size" elements of the first array into the second one
+void copyArr(char arr1[], char arr2[], int size) {
+  for(int i = 0; i < size; i++) {
+    arr2[i] = arr1[i];
+  }
+}
+
+// Changes all the elements of a char array into backspace characters
+void clearArr(char arr[], int size) {
+  for(int i = 0; i < size; i++) {
+    arr[i] = ' ';
+  }
+}
+
+// Compute the sum of all the int values in a file
+int computeSum(char file[], char mode[]) {
+  FILE *fp;
+  char c; 
+  fp =  fopen(file, mode);   
+  int n;
+  char arr[LENGTH]; 
+  int i = 0;
+  int sum = 0;
+
+  while(1) {   
+    c = fgetc(fp);
+    
+    // End of file
+    if(feof(fp) ) { 
+      break ;
+    }
+    arr[i] = c;   
+
+    // next line
+    if(c == '\n') {
+      char nAsArray[i];
+      copyArr(arr, nAsArray, i);
+      n = atoi(nAsArray);
+      sum += n;
+      clearArr(nAsArray, i);
+      clearArr(arr, LENGTH);
+    }
+    i++;    
+  }
+  
+  fclose(fp);   
+
+  return sum;
+}
+
+// Writes an int value into a file. If the file has any contents, they are erased.
+void writeUniqueInt(char file[], int value) {
+  FILE *fp;
+  fp =  fopen(file, "w");
+  fprintf(fp, "%d\n", value); 
+  fclose(fp);
+}
+
+// Writes a new value into a file. It doesn't replace the  preexistent values.
+void writeAppendInt(char file[], int value) {
+  FILE *fp;
+  fp =  fopen(file, "a+");
+  fprintf(fp, "%d\n", value); 
+  fclose(fp);
+}
 
 // Function executed my each doctor thread. It registers the number of dead patients a doctor had in one day.
 void *notifyDeaths(void *i){
@@ -35,7 +102,6 @@ void *notifyDeaths(void *i){
 
   pthread_exit(NULL);
 }
-
 
 void *notifyCases(void *i){
   int nOfCases; // new daily cases 
@@ -92,14 +158,14 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // Wait for all the doctor threads to finish
+  // Waits for all the doctor threads to finish
   for(int i = 0; i < nOfDoctorsR1 + nOfDoctorsR2; i++) {
     pthread_join(doctors[i], NULL);   
   }
 
   printf("--------------------------------------------\n");
 
-  //Creating laboratories threads
+  //Creating laboratory threads
   for(long i=0; i<nOfLabsR1 + nOfLabsR2; i++){
     //printf("I'm the lab number: %ld \n", i);
     if(pthread_create(&labs[i], NULL, notifyCases, (void*)i)){
@@ -107,7 +173,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // Wait for all the labs threads to finish
+  // Wait for all the lab threads to finish
   for(int i = 0; i < nOfLabsR1 + nOfLabsR2; i++) {
     pthread_join(labs[i], NULL);   
   }
