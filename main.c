@@ -11,10 +11,18 @@
 #define nOfDoctorsR2 2 // number of doctors in region 2
 #define nOfLabsR1 2 // number of labs in region 1
 #define nOfLabsR2 3 // number of labs in region 2
-#define LENGTH 5
+#define LENGTH 6 // size of an auxiliary array
 
 int keepGoing = 2; // 0 is false, 1 is true, 2 is true in verbose mode
 pthread_mutex_t mutex; //MUTEX
+
+char *getCurrentTimeAndDate() {
+  time_t rawtime;
+  struct tm * timeinfo;
+  time ( &rawtime );  
+  timeinfo = localtime (&rawtime); 
+  return strtok(asctime (timeinfo), "\n"); //removes the "\n" in the end of the string
+}
 
 // Copies the first "size" elements of the first array into the second one
 void copyArr(char arr1[], char arr2[], int size) {
@@ -55,7 +63,7 @@ int getNumberFromFile(char file[], int line) {
       clearArr(arr, LENGTH);
       i = 0;
       if(count == line) {
-        number= n;
+        number = n;
         break;
       }
     }
@@ -137,7 +145,11 @@ void *notifyDeathsR1(void *i){
   long doctorId = (long) i;
 
   nOfDeaths = rand() % 100; // number between 0 and 99 
+  
+  
+  //Critical section ***************************************
   writeAppendInt("files/deathsR1.txt", nOfDeaths);
+  // End Critical section **********************************
   
   if(keepGoing == 2) { // if verbose mode is active
     printf("The doctor %ld of region 1 is registering %d deaths...\n", doctorId, nOfDeaths);
@@ -151,7 +163,10 @@ void *notifyDeathsR2(void *i){
   long doctorId = (long) i;
 
   nOfDeaths = rand() % 100; // number between 0 and 99 
+  
+  // Critical section **************************************
   writeAppendInt("files/deathsR2.txt", nOfDeaths);
+  // End Critical section **********************************
   
   if(keepGoing == 2) { // if verbose mode is active
     printf("The doctor %ld of region 2 is registering %d deaths...\n", doctorId, nOfDeaths);
@@ -159,11 +174,12 @@ void *notifyDeathsR2(void *i){
   pthread_exit(NULL);
 }
 
+// Function executed my each lab thread from region 1. It notifies about the number of cases the lab registered in one day.
 void *notifyCasesR1(void *i){
   int nOfCases; // new daily cases 
   long labId = (long) i;
 
-  nOfCases = rand() % 100; // number between 0 and 99 
+  nOfCases = rand() % 100; // number between 0 and 99
 
   if(keepGoing == 2) {
     printf("The lab %ld of region 1 is registering %d new cases... \n", labId, nOfCases);
@@ -177,6 +193,7 @@ void *notifyCasesR1(void *i){
 
 }
 
+// Function executed my each lab thread from region 2. It notifies about the number of cases the lab registered in one day.
 void *notifyCasesR2(void *i){
   int nOfCases; // new daily cases 
   long labId = (long) i;
@@ -203,12 +220,12 @@ void *healthServiceFunction(void *i) {
 
   switch(region) {
     case 1:
-      // Critical region ******************************
+      // Critical section ******************************
       totalDeaths = computeSum("files/deathsR1.txt");
       eraseFileContents("files/deathsR1.txt");
       totalCases = computeSum("files/casesR1.txt");
       eraseFileContents("files/casesR1.txt");
-      // End Critical region **************************
+      // End Critical section **************************
       
       // Critical section *****************************
       writeUniqueInt("files/hServiceR1.txt", totalCases);
@@ -216,11 +233,11 @@ void *healthServiceFunction(void *i) {
       // End critical section *************************
       break;	
     case 2:
-      // Critical region ******************************
+      // Critical section ******************************
       totalDeaths = computeSum("files/deathsR2.txt");eraseFileContents("files/deathsR2.txt");
       totalCases = computeSum("files/casesR2.txt");
       eraseFileContents("files/casesR2.txt");
-      // End Critical region *************************
+      // End Critical section *************************
       
       // Critical section
       writeUniqueInt("files/hServiceR2.txt", totalCases);
@@ -237,17 +254,22 @@ void *healthDepartmentFunction(void * i) {
   int nationalDeaths = getNumberFromFile("files/hDepartment.txt", 2);
 
   // Critical section ******************************
-  nationalCases += getNumberFromFile("files/hServiceR1.txt", 1);
-  nationalDeaths += getNumberFromFile("files/hServiceR1.txt", 2);
-  // Critical section ******************************
+  nationalCases += getNumberFromFile("files/hServiceR1.txt", 1); // gets the number in line 1 of the file
+  nationalDeaths += getNumberFromFile("files/hServiceR1.txt", 2); // gets the number in line 2 of the file
+  // End Critical section ******************************
 
-  //Critical section *******************************
-  nationalCases += getNumberFromFile("files/hServiceR2.txt", 1);
-  nationalDeaths += getNumberFromFile("files/hServiceR2.txt", 2);
-  // Critical section ******************************
+  //Critical section **********************************
+  nationalCases += getNumberFromFile("files/hServiceR2.txt", 1); //gets the number in line 1 of the file
+  nationalDeaths += getNumberFromFile("files/hServiceR2.txt", 2); // gets the number in line 2 of the file
+  // End Critical section ******************************
   
   writeUniqueInt("files/hDepartment.txt", nationalCases);
   writeAppendInt("files/hDepartment.txt", nationalDeaths);
+
+  if(keepGoing == 2) {
+    printf("Total deaths in the country: %d\n", nationalDeaths);
+    printf("Total cases in the country: %d\n", nationalCases);
+  }
 
   pthread_exit(NULL);
 }
@@ -266,6 +288,7 @@ int main(int argc, char *argv[]) {
   // pthread_mutex_init(&mutex, NULL);
   eraseFileContents("files/deathsR1.txt");
 
+  // The program will keep running until the user decides to stop it
   while(1) {    
     
     //Creates doctor threads from region 1
@@ -336,14 +359,14 @@ int main(int argc, char *argv[]) {
     pthread_join(healthDepartment, NULL);
     */
 
-    printf("Day %d finished.\nEnter 1 to continue, 2 to continue in verbose mode or 0 to exit >> ", dayNumber);
+    printf("%s GMT: Simulation of day %d finished.\nEnter 1 to continue, 2 to continue in verbose mode or 0 to exit >> ", getCurrentTimeAndDate(), dayNumber);
     scanf("%d", &keepGoing);
     printf("\n");
     if(keepGoing == 0) {
       break;
     }
     dayNumber++;
-  }
 
+  }
   return 0;
 }
