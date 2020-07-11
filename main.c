@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -8,36 +7,14 @@
 #include <string.h>
 #include <math.h>
 
-#define nOfDoctorsR1 2 // number of doctors in region 1
-#define nOfDoctorsR2 1 // number of doctors in region 2
+#define nOfDoctorsR1 3 // number of doctors in region 1
+#define nOfDoctorsR2 2 // number of doctors in region 2
 #define nOfLabsR1 2 // number of labs in region 1
-#define nOfLabsR2 1 // number of labs in region 2
+#define nOfLabsR2 3 // number of labs in region 2
 #define LENGTH 5
 
+int keepGoing = 2; // 0 is false, 1 is true, 2 is true in verbose mode
 pthread_mutex_t mutex; //MUTEX
-
-
-int juntarNumeros(int arr[], int size){
-  int numero=0;
-  int contador = 0;
-  int potencia;
-
-  for(int i=0; i < size; i++){
-    if(arr[i]!=-1){
-      contador+=1;
-    }
-  }
-  for(int i=0; i < size; i++){
-    //printf("[%d]", arr[i]);
-    if(arr[i]!=-1 && contador != 0){
-      potencia = pow(10, contador-1);
-      numero=numero+arr[i]*potencia;
-      contador-=1;
-    }
-  }
-
-  return numero;
-}
 
 // Copies the first "size" elements of the first array into the second one
 void copyArr(char arr1[], char arr2[], int size) {
@@ -46,71 +23,57 @@ void copyArr(char arr1[], char arr2[], int size) {
   }
 }
 
-// Changes all the elements of an int array into backspace characters
-void clearArr(int arr[], int size) {
-  for(int i = 0; i < size; i++) {
-    arr[i] = -1;
-  }
-}
-
 // Changes all the elements of a char array into backspace characters
-void clearArr2(int arr[], int size) {
+void clearArr(char arr[], int size) {
   for(int i = 0; i < size; i++) {
     arr[i] = ' ';
   }
 }
 
-// Compute the sum of all the int values in a file
-int hola(char a[], char b[]) {
+// Gets the number located in the specified line of a file that has only one number per line.
+int getNumberFromFile(char file[], int line) {
+  int number = 0;
   FILE *fp;
-  char c; 
-  fp =  fopen("a.txt", "b");  
-  //hola
+  char mode[] = "r";
+  fp =  fopen(file, mode);
+  char arr[LENGTH]; 
   int n;
-  int contador;
-  int arr[5] = {-1,-1,-1,-1,-1};
-  int suma=0;
-  //int arr1[5] = {3,7,4,8,-1};
-  //int numero = juntarNumeros(arr1, 5);
-  //printf("el valor es %d \n", numero);
-
+  char c;
+  int count = 0;
   int i = 0;
-
-  while(1) {
+  while(1) {   
     c = fgetc(fp);
-    if( feof(fp) ) { 
+    arr[i] = c;
+    
+    // next line
+    if(c == '\n') {
+      count++;
+      char nAsArray[i];
+      copyArr(arr, nAsArray, i);
+      n = atoi(nAsArray);
+      clearArr(nAsArray, i);
+      clearArr(arr, LENGTH);
+      i = 0;
+      if(count == line) {
+        number= n;
+        break;
+      }
+    }
+    // End of file
+    if(feof(fp) ) { 
       break ;
     }
-    //printf("%c", c);
-    if(c != '\n'){
-      n = c - '0';
-      arr[i]=n;
-      i++;
-      printf("numero: %d \n", n);
-    }
-    else{
-      printf("El valor leido es %d\n", juntarNumeros(arr, 5));
-      suma=suma+juntarNumeros(arr, 5);
-      printf("la suma es %d\n", suma);
-      clearArr(arr, 5);
-
-    }    
+    i++;    
   }
   
   fclose(fp);
-
-  fp =  fopen("deaths.txt", "w");
-  fprintf(fp, "%d\n", suma); 
- 
-
-  
-  return 0;
+  return number;
 }
 
-// Compute the sum of all the int values in a file
+// Computes the sum of all the int values in a file
 int computeSum(char file[]) {
   FILE *fp;
-  char mode[] = "";
+  char mode[] = "r";
   char c; 
   fp =  fopen(file, mode);   
   int n;
@@ -120,21 +83,21 @@ int computeSum(char file[]) {
 
   while(1) {   
     c = fgetc(fp);
+    arr[i] = c;
     
-    // End of file
-    if(feof(fp) ) { 
-      break ;
-    }
-    arr[i] = c;   
-
     // next line
     if(c == '\n') {
       char nAsArray[i];
       copyArr(arr, nAsArray, i);
       n = atoi(nAsArray);
       sum += n;
-      //clearArr2(nAsArray, i);
-      //clearArr2(arr, LENGTH);
+      clearArr(nAsArray, i);
+      clearArr(arr, LENGTH);
+      i = 0;
+    }
+    // End of file
+    if(feof(fp) ) { 
+      break ;
     }
     i++;    
   }
@@ -144,13 +107,20 @@ int computeSum(char file[]) {
   return sum;
 }
 
+// Deletes all the contents of a file.
+void eraseFileContents(char file[]) {
+  FILE *fp;
+  fp =  fopen(file, "w");
+  fprintf(fp, "%s", ""); 
+  fclose(fp);
+}
+
 // Writes an int value into a file. If the file has any contents, they are erased.
 void writeUniqueInt(char file[], int value) {
   FILE *fp;
   fp =  fopen(file, "w");
   fprintf(fp, "%d\n", value); 
   fclose(fp);
-  
 }
 
 // Writes a new value into a file. It doesn't replace the  preexistent values.
@@ -161,252 +131,219 @@ void writeAppendInt(char file[], int value) {
   fclose(fp);
 }
 
-void writeDeaths(char file[], char mode[] ,int deaths){ 
-  FILE *filePointer;
-  filePointer = fopen(file, mode);  // open the file for writing in appending mode
-  fprintf(filePointer, "%d \n", deaths); 
-  //fprintf(filePointer, "%c", '\n');
-  fclose(filePointer); // closes the file
-}
-
-// Function executed my each doctor thread. It registers the number of dead patients a doctor had in one day.
-void *notifyDeaths(void *i){
+// Function executed by each doctor thread from region 1. It registers the number of dead patients a doctor had in one day.
+void *notifyDeathsR1(void *i){
   int nOfDeaths; // new daily deaths 
   long doctorId = (long) i;
-  nOfDeaths = rand() % 100; // number between 0 and 99
-  printf("The doctor number: %ld is registering %d deaths... \n", doctorId, nOfDeaths);
-  //sleep(4);
-  //pthread_mutex_lock(&mutex); //MUTEX LOCK
 
-  writeDeaths("deaths.txt", "a+", nOfDeaths);
-
-  //pthread_mutex_unlock(&mutex); //MUTEX UNLOCK
-
+  nOfDeaths = rand() % 100; // number between 0 and 99 
+  writeAppendInt("files/deathsR1.txt", nOfDeaths);
+  
+  if(keepGoing == 2) { // if verbose mode is active
+    printf("The doctor %ld of region 1 is registering %d deaths...\n", doctorId, nOfDeaths);
+  }
   pthread_exit(NULL);
 }
 
-void *notifyCases(void *i){
+// Function executed my each doctor thread from region 2. It registers the number of dead patients a doctor had in one day.
+void *notifyDeathsR2(void *i){
+  int nOfDeaths; // new daily deaths 
+  long doctorId = (long) i;
+
+  nOfDeaths = rand() % 100; // number between 0 and 99 
+  writeAppendInt("files/deathsR2.txt", nOfDeaths);
+  
+  if(keepGoing == 2) { // if verbose mode is active
+    printf("The doctor %ld of region 2 is registering %d deaths...\n", doctorId, nOfDeaths);
+  }
+  pthread_exit(NULL);
+}
+
+void *notifyCasesR1(void *i){
   int nOfCases; // new daily cases 
   long labId = (long) i;
-  FILE *filePointer;
 
   nOfCases = rand() % 100; // number between 0 and 99 
-  filePointer = fopen("cases.txt", "a+");  // open the file for writing in appending mode
+
+  if(keepGoing == 2) {
+    printf("The lab %ld of region 1 is registering %d new cases... \n", labId, nOfCases);
+  }
+
+  // Critic section ********************************** 
+  writeAppendInt("files/casesR1.txt", nOfCases);
+  // End critic section ******************************
+
+  pthread_exit(NULL);
+
+}
+
+void *notifyCasesR2(void *i){
+  int nOfCases; // new daily cases 
+  long labId = (long) i;
+
+  nOfCases = rand() % 100; // number between 0 and 99 
+
+  if(keepGoing == 2) {
+    printf("The lab %ld of region 2 is registering %d new cases... \n", labId, nOfCases);
+  }
+
+  // Critic section ********************************** 
+  writeAppendInt("files/casesR2.txt", nOfCases);
+  // End critic section ******************************
+
+  pthread_exit(NULL);
+
+}
+
+void *healthServiceFunction(void *i) {
+  long region = (long) i;
+  int totalDeaths = 0;
+  int totalCases = 0;
+  int randomTime = rand() % 10;
+
+  switch(region) {
+    case 1:
+      // Critical region ******************************
+      totalDeaths = computeSum("files/deathsR1.txt");
+      eraseFileContents("files/deathsR1.txt");
+      totalCases = computeSum("files/casesR1.txt");
+      eraseFileContents("files/casesR1.txt");
+      // End Critical region **************************
+      
+      // Critical section *****************************
+      writeUniqueInt("files/hServiceR1.txt", totalCases);
+      writeAppendInt("files/hServiceR1.txt", totalDeaths);
+      // End critical section *************************
+      break;	
+    case 2:
+      // Critical region ******************************
+      totalDeaths = computeSum("files/deathsR2.txt");eraseFileContents("files/deathsR2.txt");
+      totalCases = computeSum("files/casesR2.txt");
+      eraseFileContents("files/casesR2.txt");
+      // End Critical region *************************
+      
+      // Critical section
+      writeUniqueInt("files/hServiceR2.txt", totalCases);
+      writeAppendInt("files/hServiceR2.txt", totalDeaths);
+      // End critical section
+      break;
+  }  
+  pthread_exit(NULL);
+}
+
+void *healthDepartmentFunction(void * i) {
+  // Reads the current national statistics
+  int nationalCases = getNumberFromFile("files/hDepartment.txt", 1);
+  int nationalDeaths = getNumberFromFile("files/hDepartment.txt", 2);
+
+  // Critical section ******************************
+  nationalCases += getNumberFromFile("files/hServiceR1.txt", 1);
+  nationalDeaths += getNumberFromFile("files/hServiceR1.txt", 2);
+  // Critical section ******************************
+
+  //Critical section *******************************
+  nationalCases += getNumberFromFile("files/hServiceR2.txt", 1);
+  nationalDeaths += getNumberFromFile("files/hServiceR2.txt", 2);
+  // Critical section ******************************
   
-  //pthread_mutex_lock(&mutex);
-  printf("The lab number: %ld is registering %d new cases... \n", labId, nOfCases);
-  //sleep(1); 
-  
-  fprintf(filePointer, "%d \n", nOfCases); 
-  //fprintf(filePointer, "%c", '\n'); 
-  fclose(filePointer); // closes the file
-
-  //pthread_mutex_unlock(&mutex);
+  writeUniqueInt("files/hDepartment.txt", nationalCases);
+  writeAppendInt("files/hDepartment.txt", nationalDeaths);
 
   pthread_exit(NULL);
-
-}
-
-int readAndWrite(char file[], char mode[], char file2[], char mode2[]){
-  printf("healthServiceFunction \n");
-
-  FILE *fp;
-  char c; 
-  fp =  fopen(file, mode); 
-
-  //hola
-  int n;
-  int contador;
-  int arr[5] = {-1,-1,-1,-1,-1};
-  int suma=0;
-  int i = 0;
-
-  while(1) {
-    c = fgetc(fp);
-    if( feof(fp) ) { 
-      break ;
-    }
-    if(c != '\n'){
-      n = c - '0';
-      if(n>=0){
-        arr[i]=n;
-        i++;
-        //printf("numero: %d \n", n);
-      }
-    }
-    else{
-      //printf("Numero completo: %d\n", juntarNumeros(arr, 5));
-      suma=suma+juntarNumeros(arr, 5);
-      clearArr(arr, 5);
-      i=0;
-    }    
-  }
-  fclose(fp);
-  printf("la suma es %d\n", suma);
-
-  fp =  fopen(file2, mode2);
-  fprintf(fp, "%d\n", suma);
-  pthread_exit(NULL);
-}
-
-void *healthServiceFunction(void *p){
-  //int toSleep = rand() % 10;
-  if(1 == 1){
-    readAndWrite("deaths.txt",
-    "r","hServiceR1.txt","a+");
-
-  }
-  else{
-    readAndWrite("deathsR2.txt","r","hServiceR2.txt","a+");
-    
-  }
-
-  pthread_exit(NULL);
-
-  //sleep(toSleep);
-}
-
-void *healthDepartmentFunction(){
-  //int toSleep = rand() % 10;
-  //printf("healthDepartmentFunction \n");
-  //sleep(toSleep);
-  pthread_exit(NULL);
-
 }
 
 int main(int argc, char *argv[]) {
-  pthread_t doctors [nOfDoctorsR1 + nOfDoctorsR2];
-  pthread_t labs [nOfLabsR1 + nOfLabsR2];
-
+  pthread_t doctorsR1 [nOfDoctorsR1];
+  pthread_t doctorsR2 [nOfDoctorsR2];
+  pthread_t labsR1 [nOfLabsR1];
+  pthread_t labsR2 [nOfLabsR2];
   pthread_t hServiceR1; 
   pthread_t hServiceR2;
-
   pthread_t healthDepartment;
-  
+  int dayNumber = 0;
+
   srand (time(NULL));
-  pthread_mutex_init(&mutex, NULL);
+  // pthread_mutex_init(&mutex, NULL);
+  eraseFileContents("files/deathsR1.txt");
 
-  //Creating doctor threads
-  for(long i = 0; i < nOfDoctorsR1 + nOfDoctorsR2; i++){
+  while(1) {    
     
-    if(pthread_create(&doctors[i], NULL, notifyDeaths, (void *)i)){
-      printf("Error during thread creation \n");
-      exit(-1);    
+    //Creates doctor threads from region 1
+    for(long i = 0; i < nOfDoctorsR1; i++) {    
+      if(pthread_create(&doctorsR1[i], NULL, notifyDeathsR1, (void *)i)){
+        printf("Error creating doctors from region 1.\n");
+        exit(-1);    
+      }
+      pthread_join(doctorsR1[i], NULL);   
+    }  
+    
+    //Creates doctor threads from region 2
+    for(long i = 0; i < nOfDoctorsR2; i++) {    
+      if(pthread_create(&doctorsR2[i], NULL, notifyDeathsR2, (void *)i)){
+        printf("Error creating doctors from region 2.\n");
+        exit(-1);    
+      }
+      pthread_join(doctorsR2[i], NULL);   
+
     }
-  }
 
-  // Waits for all the doctor threads to finish
-  for(int i = 0; i < nOfDoctorsR1 + nOfDoctorsR2; i++) {
-    pthread_join(doctors[i], NULL);   
-  }
-
-  printf("--------------------------------------------\n");
-
-  //Creating laboratory threads
-  for(long i=0; i<nOfLabsR1 + nOfLabsR2; i++){
-    //printf("I'm the lab number: %ld \n", i);
-    if(pthread_create(&labs[i], NULL, notifyCases, (void*)i)){
-      printf("Error during thread creation \n");
+    // Creates lab threads from region 1
+    for(long i = 0; i < nOfLabsR1; i++) {
+      if(pthread_create(&labsR1[i], NULL, notifyCasesR1, (void*)i)){
+        printf("Error creating labs from region 1.\n");
+      }
+      pthread_join(labsR1[i], NULL);
     }
-  }
 
-  // Wait for all the lab threads to finish
-  for(int i = 0; i < nOfLabsR1 + nOfLabsR2; i++) {
-    pthread_join(labs[i], NULL);   
-  }
-  
-  //Creating Health Service threads
-  pthread_create(&hServiceR1, NULL, healthServiceFunction, NULL);
-  
-  pthread_join(hServiceR1, NULL);
+    //Creates lab threads from region 2
+    for(long i = 0; i < nOfLabsR2; i++) {
+      if(pthread_create(&labsR2[i], NULL, notifyCasesR2, (void*)i)){
+        printf("Error creating labs from region 2.\n");
+      }
+      pthread_join(labsR2[i], NULL);
+    }
+   
+    // Creates Health Service thread from region 1
+    pthread_create(&hServiceR1, NULL, healthServiceFunction, (void *) 1);
+    pthread_join(hServiceR1, NULL);
 
-  //pthread_create(&hServiceR2, NULL, healthServiceFunction, NULL);
+    // Creates Health Service thread from region 2
+    pthread_create(&hServiceR2, NULL, healthServiceFunction, (void *) 2);           pthread_join(hServiceR2, NULL);
  
-  //pthread_join(hServiceR2, NULL);
+    // Creates health department thread
+    pthread_create(&healthDepartment, NULL, healthDepartmentFunction, NULL);
+    pthread_join(healthDepartment, NULL);
 
-  pthread_create(&healthDepartment, NULL, healthDepartmentFunction, NULL);
-  
-  return 0;
-}
-
-
+    /************** Join all the threads *************/
 /*
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-
-
-void clearArr(int arr[], int size) {
-  for(int i = 0; i < size; i++) {
-    arr[i] = -1;
-  }
-}
-
-int juntarNumeros(int arr[], int size){
-  int numero=0;
-  int contador = 0;
-  int potencia;
-
-  for(int i=0; i < size; i++){
-    if(arr[i]!=-1){
-      contador+=1;
+    for(int i = 0; i < nOfDoctorsR1; i++) {
+      pthread_join(doctorsR1[i], NULL);   
     }
-  }
-  for(int i=0; i < size; i++){
-    if(arr[i]!=-1){
-      potencia = pow(10, contador-1);
-      numero=numero+arr[i]*potencia;
-      contador-=1;
-    }
-  }
-
-  return numero;
-}
-
-
-int main(void) {
-  FILE *fp;
-  char c; 
-  fp =  fopen("deaths.txt", "r");  
-  //hola
-  int n;
-  int contador;
-  int arr[5] = {-1,-1,-1,-1,-1};
-  int suma=0;
-  //int arr1[5] = {3,7,4,8,-1};
-  //int numero = juntarNumeros(arr1, 5);
-  //printf("el valor es %d \n", numero);
-
-  int i = 0;
-
-  while(1) {
-    c = fgetc(fp);
-    if( feof(fp) ) { 
-      break ;
-    }
-    //printf("%c", c);
-    if(c != '\n'){
-      n = c - '0';
-      arr[i]=n;
-      i++;
-      printf("numero: %d \n", n);
-    }
-    else{
-      printf("El valor leido es %d\n", juntarNumeros(arr, 5));
-      suma=suma+juntarNumeros(arr, 5);
-      printf("la suma es %d\n", suma);
-      clearArr(arr, 5);
-
-    }    
-  }
-  
-  fclose(fp);
-
-  fp =  fopen("deaths.txt", "w");
-  fprintf(fp, "%d\n", suma); 
  
+    for(int i = 0; i < nOfDoctorsR2; i++) {
+      pthread_join(doctorsR1[i], NULL);   
+    }
 
-  
+    for(int i = 0; i < nOfLabsR1; i++) {
+      pthread_join(labsR1[i], NULL);   
+    }
+
+    for(int i = 0; i < nOfLabsR2; i++) {
+      pthread_join(labsR2[i], NULL);   
+    }
+
+    pthread_join(hServiceR2, NULL);
+    pthread_join(healthDepartment, NULL);
+    */
+
+    printf("Day %d finished.\nEnter 1 to continue, 2 to continue in verbose mode or 0 to exit >> ", dayNumber);
+    scanf("%d", &keepGoing);
+    printf("\n");
+    if(keepGoing == 0) {
+      break;
+    }
+    dayNumber++;
+  }
+
   return 0;
 }
-*/
