@@ -139,13 +139,12 @@ void writeAppendInt(char file[], int value) {
   fclose(fp);
 }
 
-// Function executed by each doctor thread from region 1. It registers the number of dead patients a doctor had in one day.
-void *notifyDeathsR1(void *i){
+// Function executed by each doctor thread from region 1. It registers the number of dead patients a doctor with id *i had in one day.
+void *registerDeathsR1(void *i){
   int nOfDeaths; // new daily deaths 
   long doctorId = (long) i;
 
   nOfDeaths = rand() % 100; // number between 0 and 99 
-  
   
   //Critical section ***************************************
   writeAppendInt("files/deathsR1.txt", nOfDeaths);
@@ -158,7 +157,7 @@ void *notifyDeathsR1(void *i){
 }
 
 // Function executed my each doctor thread from region 2. It registers the number of dead patients a doctor had in one day.
-void *notifyDeathsR2(void *i){
+void *registerDeathsR2(void *i){
   int nOfDeaths; // new daily deaths 
   long doctorId = (long) i;
 
@@ -175,11 +174,11 @@ void *notifyDeathsR2(void *i){
 }
 
 // Function executed my each lab thread from region 1. It notifies about the number of cases the lab registered in one day.
-void *notifyCasesR1(void *i){
+void *registerCasesR1(void *i){
   int nOfCases; // new daily cases 
   long labId = (long) i;
 
-  nOfCases = rand() % 100; // number between 0 and 99
+  nOfCases = rand() % 1000 + 100; // number between 100 and 1099
 
   if(keepGoing == 2) {
     printf("The lab %ld of region 1 is registering %d new cases... \n", labId, nOfCases);
@@ -194,11 +193,11 @@ void *notifyCasesR1(void *i){
 }
 
 // Function executed my each lab thread from region 2. It notifies about the number of cases the lab registered in one day.
-void *notifyCasesR2(void *i){
+void *registerCasesR2(void *i){
   int nOfCases; // new daily cases 
   long labId = (long) i;
 
-  nOfCases = rand() % 100; // number between 0 and 99 
+  nOfCases = rand() % 1000 + 100; // number between 100 and 1099
 
   if(keepGoing == 2) {
     printf("The lab %ld of region 2 is registering %d new cases... \n", labId, nOfCases);
@@ -212,6 +211,7 @@ void *notifyCasesR2(void *i){
 
 }
 
+// 
 void *healthServiceFunction(void *i) {
   long region = (long) i;
   int totalDeaths = 0;
@@ -253,16 +253,19 @@ void *healthDepartmentFunction(void * i) {
   int nationalCases = getNumberFromFile("files/hDepartment.txt", 1);
   int nationalDeaths = getNumberFromFile("files/hDepartment.txt", 2);
 
+  // Reads the information from region 1
   // Critical section ******************************
   nationalCases += getNumberFromFile("files/hServiceR1.txt", 1); // gets the number in line 1 of the file
   nationalDeaths += getNumberFromFile("files/hServiceR1.txt", 2); // gets the number in line 2 of the file
   // End Critical section ******************************
 
+  // Reads the information from region 2
   //Critical section **********************************
   nationalCases += getNumberFromFile("files/hServiceR2.txt", 1); //gets the number in line 1 of the file
   nationalDeaths += getNumberFromFile("files/hServiceR2.txt", 2); // gets the number in line 2 of the file
   // End Critical section ******************************
   
+  // Writes the national statistics
   writeUniqueInt("files/hDepartment.txt", nationalCases);
   writeAppendInt("files/hDepartment.txt", nationalDeaths);
 
@@ -293,7 +296,7 @@ int main(int argc, char *argv[]) {
     
     //Creates doctor threads from region 1
     for(long i = 0; i < nOfDoctorsR1; i++) {    
-      if(pthread_create(&doctorsR1[i], NULL, notifyDeathsR1, (void *)i)){
+      if(pthread_create(&doctorsR1[i], NULL, registerDeathsR1, (void *)i)){
         printf("Error creating doctors from region 1.\n");
         exit(-1);    
       }
@@ -302,7 +305,7 @@ int main(int argc, char *argv[]) {
     
     //Creates doctor threads from region 2
     for(long i = 0; i < nOfDoctorsR2; i++) {    
-      if(pthread_create(&doctorsR2[i], NULL, notifyDeathsR2, (void *)i)){
+      if(pthread_create(&doctorsR2[i], NULL, registerDeathsR2, (void *)i)){
         printf("Error creating doctors from region 2.\n");
         exit(-1);    
       }
@@ -312,7 +315,7 @@ int main(int argc, char *argv[]) {
 
     // Creates lab threads from region 1
     for(long i = 0; i < nOfLabsR1; i++) {
-      if(pthread_create(&labsR1[i], NULL, notifyCasesR1, (void*)i)){
+      if(pthread_create(&labsR1[i], NULL, registerCasesR1, (void*)i)){
         printf("Error creating labs from region 1.\n");
       }
       pthread_join(labsR1[i], NULL);
@@ -320,7 +323,7 @@ int main(int argc, char *argv[]) {
 
     //Creates lab threads from region 2
     for(long i = 0; i < nOfLabsR2; i++) {
-      if(pthread_create(&labsR2[i], NULL, notifyCasesR2, (void*)i)){
+      if(pthread_create(&labsR2[i], NULL, registerCasesR2, (void*)i)){
         printf("Error creating labs from region 2.\n");
       }
       pthread_join(labsR2[i], NULL);
@@ -331,7 +334,7 @@ int main(int argc, char *argv[]) {
     pthread_join(hServiceR1, NULL);
 
     // Creates Health Service thread from region 2
-    pthread_create(&hServiceR2, NULL, healthServiceFunction, (void *) 2);           pthread_join(hServiceR2, NULL);
+    pthread_create(&hServiceR2, NULL, healthServiceFunction, (void *) 2);       pthread_join(hServiceR2, NULL);
  
     // Creates health department thread
     pthread_create(&healthDepartment, NULL, healthDepartmentFunction, NULL);
@@ -360,13 +363,13 @@ int main(int argc, char *argv[]) {
     */
 
     printf("%s GMT: Simulation of day %d finished.\nEnter 1 to continue, 2 to continue in verbose mode or 0 to exit >> ", getCurrentTimeAndDate(), dayNumber);
+    
     scanf("%d", &keepGoing);
     printf("\n");
     if(keepGoing == 0) {
       break;
     }
     dayNumber++;
-
   }
   return 0;
 }
