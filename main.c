@@ -14,7 +14,51 @@
 #define LENGTH 6 // size of an auxiliary array
 
 int keepGoing = 2; // 0 is false, 1 is true, 2 is true in verbose mode
-pthread_mutex_t mutex; //MUTEX
+
+/*The resource counter is a proxy variable to protect
+the access to the critical sections (files). 
+0 means the resource is free,
+>1 means the amount of readers
+-1 means there's a writer.*/
+int resourceCounterDR1 // resource counter for Doctor file region 1
+int resourceCounterLR1; // resource counter for Lab file region 1
+int resourceCounterDR2 // resource counter for Doctor file region 2
+int resourceCounterLR2; // resource counter for Lab file region 2
+int resourceCounterHSR1; // resource counter for health service file region 1
+int resourceCounterHSR2; // resource counter for health service file region 2
+
+int wReadersDoctorFilesR1; //number of threads waiting to read the doctors file in region 1 (it may be either a health service or the health department)
+int wWritersDoctorFilesR1; //number of threads waiting to write into the doctors file in region 1
+int wReadersDoctorFilesR2; //number of threads waiting to read the doctors file in region 2 (it may be either a health service or the health department)
+int wWritersDoctorFilesR2; //number of threads waiting to write into the doctors file in region 2
+
+int wReadersHealthServiceR1; // number of threads waiting to read the health service file in region 1
+int wReadersHealthServiceR1; // number of threads waiting to read the health service file in region 2
+
+pthread_mutex_t mutexLR1; // mutex for lab file region 1
+pthread_mutex_t mutexLR2; // mutex for lab file region 2
+pthread_mutex_t mutexDR1; // mutex for doctor file region 1
+pthread_mutex_t mutexDR2; // mutex for doctor file region 2
+pthread_mutex_t mutexHSR1; // mutex for health service file region 1
+pthread_mutex_t mutexHSR2; // mutex for health service file region 2
+
+pthread_cond_t readCondLR1; // condition for reading lab file region 1
+pthread_cond_t writeCondLR1; // codition for writing into lab file region 1
+
+pthread_cond_t readCondLR2; // condition for reading lab file region 2
+pthread_cond_t writeCondLR2; // codition for writing into lab file region 2
+
+pthread_cond_t readCondDR1; // condition for reading doctor file region 1
+pthread_cond_t writeCondDR1; // codition for writing into doctor file region 1
+
+pthread_cond_t readCondDR2; // condition for reading doctor file region 2
+pthread_cond_t writeCondDR2; // codition for writing into doctor file region 2
+
+pthread_cond_t readCondHSR1; // condition for reading health service file region 1
+pthread_cond_t writeCondHSR1; // codition for writing into health service file region 1
+
+pthread_cond_t readCondHSR2; // condition for reading health service file region 2
+pthread_cond_t writeCondHSR2; // codition for writing into health service file region 2
 
 char *getCurrentTimeAndDate() {
   time_t rawtime;
@@ -147,7 +191,12 @@ void *registerDeathsR1(void *i){
   nOfDeaths = rand() % 100; // number between 0 and 99 
   
   //Critical section ***************************************
+  pthread_mutex_lock (&mutex);
   writeAppendInt("files/deathsR1.txt", nOfDeaths);
+  pthread_cond_signal(&readCond); // If there's any reader waiting, it will have priority.
+  pthread_cond_signal(&writeCond); //.
+
+  pthread_mutex_unlock(&mutex_monitor);
   // End Critical section **********************************
   
   if(keepGoing == 2) { // if verbose mode is active
@@ -211,12 +260,12 @@ void *registerCasesR2(void *i){
 
 }
 
-// 
+// Reads the regional data to coumpute the national statistics
 void *healthServiceFunction(void *i) {
   long region = (long) i;
   int totalDeaths = 0;
   int totalCases = 0;
-  int randomTime = rand() % 10;
+  int randomTime = rand() % 5;
 
   switch(region) {
     case 1:
@@ -245,6 +294,11 @@ void *healthServiceFunction(void *i) {
       // End critical section
       break;
   }  
+
+  randomTime = rand() % 5;
+
+
+
   pthread_exit(NULL);
 }
 
